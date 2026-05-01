@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a0a0f">
+<title>LIFE XP</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --border: #2a2a40;
+    --accent: #00ff88;
+    --accent2: #7c3aed;
+    --accent3: #f59e0b;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --danger: #ef4444;
+    --glow: 0 0 20px rgba(0,255,136,0.3);
+    --font-display: 'Orbitron', monospace;
+    --font-body: 'Share Tech Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    min-height: 100dvh;
+    overflow-x: hidden;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .logo {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 900;
+    color: var(--accent);
+    letter-spacing: 4px;
+    text-shadow: var(--glow);
+    flex-shrink: 0;
+  }
+
+  .level-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 12px;
+  }
+
+  .level-label {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 2px;
+  }
+
+  .level-num {
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 900;
+    color: var(--accent3);
+  }
+
+  /* ── NAV ── */
+  nav {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  nav::-webkit-scrollbar { display: none; }
+
+  .nav-btn {
+    flex: 1;
+    min-width: 80px;
+    padding: 10px 8px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--muted);
+    font-family: var(--font-body);
+    font-size: 11px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .nav-btn.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  /* ── VIEWS ── */
+  .view { display: none; padding: 16px; padding-bottom: 32px; }
+  .view.active { display: block; }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+
+  .card-title {
+    font-family: var(--font-display);
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+
+  /* ── LOG ACTIVITY ── */
+  #log-view textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 14px;
+    padding: 12px;
+    resize: none;
+    height: 120px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  #log-view textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(0,255,136,0.1);
+  }
+
+  .submit-btn {
+    width: 100%;
+    margin-top: 10px;
+    padding: 14px;
+    background: var(--accent);
+    color: #000;
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .submit-btn:active { transform: scale(0.98); }
+  .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .submit-btn.loading::after {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%; width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    animation: shimmer 1s infinite;
+  }
+  @keyframes shimmer { to { left: 100%; } }
+
+  /* ── RESULT POPUP ── */
+  .result-card {
+    display: none;
+    background: var(--surface2);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 12px;
+    box-shadow: var(--glow);
+    animation: slideIn 0.3s ease;
+  }
+  .result-card.visible { display: block; }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .result-summary {
+    font-size: 13px;
+    color: var(--text);
+    margin-bottom: 12px;
+    line-height: 1.6;
+  }
+
+  .xp-grant {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--surface);
+    border-radius: 6px;
+    margin-bottom: 6px;
+    border-left: 3px solid var(--accent2);
+  }
+
+  .xp-grant-skill {
+    font-size: 12px;
+    color: var(--text);
+  }
+
+  .xp-grant-amount {
+    font-family: var(--font-display);
+    font-size: 14px;
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  .total-xp-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+    font-family: var(--font-display);
+    font-size: 12px;
+    color: var(--accent3);
+    gap: 8px;
+  }
+
+  /* ── SKILL BARS ── */
+  .skill-item {
+    margin-bottom: 16px;
+  }
+
+  .skill-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 6px;
+  }
+
+  .skill-name {
+    font-size: 13px;
+    color: var(--text);
+    text-transform: capitalize;
+  }
+
+  .skill-xp-label {
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .skill-level-tag {
+    font-family: var(--font-display);
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: var(--accent2);
+    color: #fff;
+    letter-spacing: 1px;
+  }
+
+  .bar-bg {
+    height: 6px;
+    background: var(--surface2);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--accent2), var(--accent));
+    transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
+    box-shadow: 0 0 8px rgba(0,255,136,0.4);
+  }
+
+  /* ── HISTORY ── */
+  .history-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 8px;
+  }
+
+  .history-date {
+    font-size: 10px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+
+  .history-desc {
+    font-size: 12px;
+    color: var(--text);
+    margin-bottom: 8px;
+    line-height: 1.5;
+  }
+
+  .history-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .tag {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    background: var(--surface2);
+    color: var(--accent);
+    border: 1px solid var(--border);
+  }
+
+  /* ── SETTINGS ── */
+  .setting-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+
+  .setting-label {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 2px;
+  }
+
+  .setting-input {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 13px;
+    padding: 10px 12px;
+    outline: none;
+    width: 100%;
+    transition: border-color 0.2s;
+  }
+
+  .setting-input:focus { border-color: var(--accent); }
+
+  .save-btn {
+    padding: 10px 20px;
+    background: var(--accent2);
+    color: #fff;
+    font-family: var(--font-display);
+    font-size: 11px;
+    letter-spacing: 2px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .save-btn:active { opacity: 0.7; }
+
+  .danger-btn {
+    padding: 10px 20px;
+    background: transparent;
+    color: var(--danger);
+    font-family: var(--font-display);
+    font-size: 11px;
+    letter-spacing: 2px;
+    border: 1px solid var(--danger);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .danger-btn:active { background: var(--danger); color: #fff; }
+
+  /* ── OVERALL XP DISPLAY ── */
+  .xp-overview {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .stat-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    text-align: center;
+  }
+
+  .stat-val {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 900;
+    color: var(--accent);
+    display: block;
+  }
+
+  .stat-lbl {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    margin-top: 4px;
+  }
+
+  /* ── GLOBAL LEVEL BAR ── */
+  .global-bar-wrap {
+    margin-bottom: 16px;
+  }
+
+  .global-bar-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+
+  .global-bar-bg {
+    height: 10px;
+    background: var(--surface2);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+
+  .global-bar-fill {
+    height: 100%;
+    border-radius: 5px;
+    background: linear-gradient(90deg, var(--accent2), var(--accent3), var(--accent));
+    transition: width 0.8s cubic-bezier(0.4,0,0.2,1);
+    box-shadow: 0 0 12px rgba(0,255,136,0.5);
+  }
+
+  /* ── EMPTY STATE ── */
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 2;
+  }
+
+  .empty-state .icon { font-size: 32px; margin-bottom: 12px; display: block; }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: var(--accent);
+    color: #000;
+    font-family: var(--font-display);
+    font-size: 12px;
+    letter-spacing: 2px;
+    padding: 10px 20px;
+    border-radius: 6px;
+    z-index: 1000;
+    transition: transform 0.3s ease;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* ── LEVEL UP FLASH ── */
+  .levelup-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 5000;
+    background: rgba(0,255,136,0.08);
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    animation: flashIn 0.3s ease;
+  }
+  .levelup-overlay.show { display: flex; }
+  @keyframes flashIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  .levelup-text {
+    font-family: var(--font-display);
+    font-size: 48px;
+    font-weight: 900;
+    color: var(--accent);
+    text-shadow: 0 0 40px var(--accent);
+    animation: pulse 0.6s ease infinite alternate;
+    text-align: center;
+  }
+  .levelup-sub {
+    font-size: 14px;
+    color: var(--accent3);
+    letter-spacing: 4px;
+    margin-top: 12px;
+  }
+  @keyframes pulse {
+    from { text-shadow: 0 0 20px var(--accent); }
+    to { text-shadow: 0 0 60px var(--accent), 0 0 120px var(--accent); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">LIFE XP</div>
+  <div class="level-badge">
+    <span class="level-label">LEVEL</span>
+    <span class="level-num" id="header-level">1</span>
+  </div>
+</header>
+
+<nav>
+  <button class="nav-btn active" onclick="switchView('log')">⚡ LOG</button>
+  <button class="nav-btn" onclick="switchView('skills')">📊 SKILLS</button>
+  <button class="nav-btn" onclick="switchView('history')">📜 HISTORY</button>
+  <button class="nav-btn" onclick="switchView('settings')">⚙ CONFIG</button>
+</nav>
+
+<!-- LOG VIEW -->
+<div id="log-view" class="view active">
+  <div class="card">
+    <div class="card-title">WHAT DID YOU DO?</div>
+    <textarea id="activity-input" placeholder="Describe what you accomplished today...&#10;&#10;e.g. &quot;Ran 5km in 28 minutes, personal best&quot; or &quot;Spent 2 hours learning Rust, built a small CLI app&quot;"></textarea>
+    <button class="submit-btn" id="submit-btn" onclick="submitActivity()">
+      SUBMIT ACTIVITY
+    </button>
+  </div>
+
+  <div class="result-card" id="result-card">
+    <div class="card-title">XP AWARDED</div>
+    <div class="result-summary" id="result-summary"></div>
+    <div id="result-grants"></div>
+    <div class="total-xp-row">
+      <span style="color:var(--muted)">TOTAL</span>
+      <span id="result-total">+0 XP</span>
+    </div>
+  </div>
+</div>
+
+<!-- SKILLS VIEW -->
+<div id="skills-view" class="view">
+  <div class="xp-overview">
+    <div class="stat-box">
+      <span class="stat-val" id="total-xp-display">0</span>
+      <div class="stat-lbl">TOTAL XP</div>
+    </div>
+    <div class="stat-box">
+      <span class="stat-val" id="activities-display">0</span>
+      <div class="stat-lbl">ACTIVITIES</div>
+    </div>
+  </div>
+
+  <div class="global-bar-wrap">
+    <div class="global-bar-header">
+      <span>OVERALL LEVEL <strong id="bar-level">1</strong></span>
+      <span id="bar-xp-label">0 / 1000 XP</span>
+    </div>
+    <div class="global-bar-bg">
+      <div class="global-bar-fill" id="global-bar" style="width:0%"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">SKILL TREE</div>
+    <div id="skills-list">
+      <div class="empty-state">
+        <span class="icon">🌱</span>
+        No skills yet.<br>Log an activity to start earning XP.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- HISTORY VIEW -->
+<div id="history-view" class="view">
+  <div id="history-list">
+    <div class="empty-state">
+      <span class="icon">📜</span>
+      No history yet.<br>Your logged activities will appear here.
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS VIEW -->
+<div id="settings-view" class="view">
+  <div class="card">
+    <div class="card-title">API CONFIGURATION</div>
+    <div class="setting-row">
+      <span class="setting-label">ANTHROPIC API KEY</span>
+      <input class="setting-input" type="password" id="api-key-input" placeholder="sk-ant-...">
+    </div>
+    <button class="save-btn" onclick="saveSettings()">SAVE CONFIG</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title">CHARACTER NAME</div>
+    <div class="setting-row">
+      <span class="setting-label">DISPLAY NAME</span>
+      <input class="setting-input" type="text" id="name-input" placeholder="Hero">
+    </div>
+    <button class="save-btn" onclick="saveSettings()">SAVE CONFIG</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title">DANGER ZONE</div>
+    <button class="danger-btn" onclick="resetData()">⚠ RESET ALL DATA</button>
+  </div>
+
+  <div class="card" style="border-color: var(--accent2);">
+    <div class="card-title">ABOUT</div>
+    <div style="font-size:12px; color:var(--muted); line-height:2;">
+      LIFE XP turns your real-world activities into RPG-style experience points. An AI evaluates what you did and awards XP to relevant skills automatically.<br><br>
+      Your data lives entirely on this device.<br>
+      API key is stored in localStorage.
+    </div>
+  </div>
+</div>
+
+<!-- LEVEL UP OVERLAY -->
+<div class="levelup-overlay" id="levelup-overlay" onclick="this.classList.remove('show')">
+  <div class="levelup-text">LEVEL UP!</div>
+  <div class="levelup-sub" id="levelup-sub">LEVEL 2</div>
+  <div style="margin-top:24px; font-size:11px; color:var(--muted);">tap to continue</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── STATE ──────────────────────────────────────────────────────────────────
+const STORAGE_KEY = 'lifexp_data_v1';
+
+function defaultState() {
+  return {
+    apiKey: '',
+    name: 'Hero',
+    totalXP: 0,
+    level: 1,
+    skills: {},
+    history: []
+  };
+}
+
+let state = (() => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? { ...defaultState(), ...JSON.parse(raw) } : defaultState();
+  } catch { return defaultState(); }
+})();
+
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+// ── LEVEL MATH ─────────────────────────────────────────────────────────────
+function xpForLevel(lvl) {
+  return Math.floor(1000 * Math.pow(1.3, lvl - 1));
+}
+
+function computeLevel(totalXP) {
+  let lvl = 1;
+  let cumulative = 0;
+  while (true) {
+    const needed = xpForLevel(lvl);
+    if (cumulative + needed > totalXP) {
+      return { level: lvl, xpInLevel: totalXP - cumulative, xpNeeded: needed };
+    }
+    cumulative += needed;
+    lvl++;
+  }
+}
+
+function skillLevel(xp) {
+  return Math.floor(1 + Math.sqrt(xp / 100));
+}
+
+// ── VIEWS ──────────────────────────────────────────────────────────────────
+function switchView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(name + '-view').classList.add('active');
+  event.target.classList.add('active');
+
+  if (name === 'skills') renderSkills();
+  if (name === 'history') renderHistory();
+  if (name === 'settings') loadSettings();
+}
+
+// ── RENDER SKILLS ──────────────────────────────────────────────────────────
+function renderSkills() {
+  const lvlInfo = computeLevel(state.totalXP);
+  const pct = Math.round((lvlInfo.xpInLevel / lvlInfo.xpNeeded) * 100);
+
+  document.getElementById('total-xp-display').textContent = state.totalXP.toLocaleString();
+  document.getElementById('activities-display').textContent = state.history.length;
+  document.getElementById('bar-level').textContent = lvlInfo.level;
+  document.getElementById('bar-xp-label').textContent =
+    `${lvlInfo.xpInLevel.toLocaleString()} / ${lvlInfo.xpNeeded.toLocaleString()} XP`;
+  document.getElementById('global-bar').style.width = pct + '%';
+
+  const container = document.getElementById('skills-list');
+  const skills = Object.entries(state.skills).sort((a, b) => b[1] - a[1]);
+
+  if (skills.length === 0) {
+    container.innerHTML = `<div class="empty-state"><span class="icon">🌱</span>No skills yet.<br>Log an activity to start earning XP.</div>`;
+    return;
+  }
+
+  const maxXP = Math.max(...skills.map(([, xp]) => xp));
+
+  container.innerHTML = skills.map(([name, xp]) => {
+    const lvl = skillLevel(xp);
+    const pct = Math.round((xp / Math.max(maxXP, 1)) * 100);
+    return `
+      <div class="skill-item">
+        <div class="skill-header">
+          <span class="skill-name">${name}</span>
+          <span class="skill-level-tag">LVL ${lvl}</span>
+        </div>
+        <div class="skill-header" style="margin-bottom:4px">
+          <span></span>
+          <span class="skill-xp-label">${xp.toLocaleString()} XP</span>
+        </div>
+        <div class="bar-bg"><div class="bar-fill" style="width:${pct}%"></div></div>
+      </div>`;
+  }).join('');
+}
+
+// ── RENDER HISTORY ─────────────────────────────────────────────────────────
+function renderHistory() {
+  const container = document.getElementById('history-list');
+  if (state.history.length === 0) {
+    container.innerHTML = `<div class="empty-state"><span class="icon">📜</span>No history yet.<br>Your logged activities will appear here.</div>`;
+    return;
+  }
+  container.innerHTML = [...state.history].reverse().map(h => `
+    <div class="history-item">
+      <div class="history-date">${new Date(h.ts).toLocaleString()}</div>
+      <div class="history-desc">${escHtml(h.activity)}</div>
+      <div class="history-tags">
+        ${h.grants.map(g => `<span class="tag">+${g.xp} ${g.skill}</span>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── SETTINGS ───────────────────────────────────────────────────────────────
+function loadSettings() {
+  document.getElementById('api-key-input').value = state.apiKey || '';
+  document.getElementById('name-input').value = state.name || 'Hero';
+}
+
+function saveSettings() {
+  state.apiKey = document.getElementById('api-key-input').value.trim();
+  state.name = document.getElementById('name-input').value.trim() || 'Hero';
+  save();
+  showToast('CONFIG SAVED');
+}
+
+function resetData() {
+  if (!confirm('Reset ALL progress? This cannot be undone.')) return;
+  const key = state.apiKey;
+  const name = state.name;
+  state = defaultState();
+  state.apiKey = key;
+  state.name = name;
+  save();
+  updateHeader();
+  showToast('DATA RESET');
+}
+
+// ── SUBMIT ACTIVITY ────────────────────────────────────────────────────────
+async function submitActivity() {
+  const activity = document.getElementById('activity-input').value.trim();
+  if (!activity) { showToast('DESCRIBE AN ACTIVITY FIRST'); return; }
+
+  const apiKey = state.apiKey;
+  if (!apiKey) {
+    showToast('SET API KEY IN CONFIG FIRST');
+    switchView('settings');
+    return;
+  }
+
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.classList.add('loading');
+  btn.textContent = 'ANALYZING...';
+
+  const resultCard = document.getElementById('result-card');
+  resultCard.classList.remove('visible');
+
+  try {
+    const result = await callClaude(activity, apiKey);
+    applyXP(activity, result);
+    showResult(result);
+    document.getElementById('activity-input').value = '';
+  } catch (e) {
+    showToast('ERROR: ' + (e.message || 'Unknown'));
+    console.error(e);
+  } finally {
+    btn.disabled = false;
+    btn.classList.remove('loading');
+    btn.textContent = 'SUBMIT ACTIVITY';
+  }
+}
+
+// ── CLAUDE API ─────────────────────────────────────────────────────────────
+async function callClaude(activity, apiKey) {
+  const prompt = `You are an XP system for a life gamification app. The user will describe something they did, and you must assign XP to relevant skills.
+
+Rules:
+- Create 1-4 skills that are relevant to the activity. Use concise, lowercase skill names (e.g. "running", "coding", "cooking", "spanish", "meditation").
+- Assign XP based on difficulty, effort, and achievement. Typical ranges: 10-30 for easy/short tasks, 30-80 for moderate effort, 80-150 for hard or exceptional achievements.
+- Write a brief (1-2 sentence) encouraging assessment of the activity.
+- Return ONLY valid JSON, no markdown, no extra text.
+
+JSON format:
+{
+  "summary": "Brief assessment of the activity",
+  "grants": [
+    {"skill": "skill name", "xp": 50},
+    {"skill": "skill name", "xp": 30}
+  ]
+}
+
+Activity: ${activity}`;
+
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 512,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.error?.message || `HTTP ${resp.status}`);
+  }
+
+  const data = await resp.json();
+  const text = data.content.map(b => b.text || '').join('');
+  const clean = text.replace(/```json|```/g, '').trim();
+  return JSON.parse(clean);
+}
+
+// ── APPLY XP ───────────────────────────────────────────────────────────────
+function applyXP(activity, result) {
+  const oldLevel = state.level;
+  let total = 0;
+
+  result.grants.forEach(g => {
+    const skill = g.skill.toLowerCase().trim();
+    state.skills[skill] = (state.skills[skill] || 0) + g.xp;
+    total += g.xp;
+  });
+
+  state.totalXP += total;
+  const lvlInfo = computeLevel(state.totalXP);
+  state.level = lvlInfo.level;
+
+  state.history.push({
+    ts: Date.now(),
+    activity,
+    grants: result.grants,
+    summary: result.summary
+  });
+
+  save();
+  updateHeader();
+
+  if (state.level > oldLevel) {
+    setTimeout(() => {
+      const overlay = document.getElementById('levelup-overlay');
+      document.getElementById('levelup-sub').textContent = `LEVEL ${state.level}`;
+      overlay.classList.add('show');
+    }, 600);
+  }
+}
+
+// ── SHOW RESULT ────────────────────────────────────────────────────────────
+function showResult(result) {
+  document.getElementById('result-summary').textContent = result.summary;
+
+  const totalXP = result.grants.reduce((s, g) => s + g.xp, 0);
+
+  document.getElementById('result-grants').innerHTML = result.grants.map(g => `
+    <div class="xp-grant">
+      <span class="xp-grant-skill">${g.skill}</span>
+      <span class="xp-grant-amount">+${g.xp} XP</span>
+    </div>`).join('');
+
+  document.getElementById('result-total').textContent = `+${totalXP} XP`;
+
+  const card = document.getElementById('result-card');
+  card.classList.add('visible');
+}
+
+// ── HEADER ─────────────────────────────────────────────────────────────────
+function updateHeader() {
+  document.getElementById('header-level').textContent = state.level;
+}
+
+// ── TOAST ──────────────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ── INIT ───────────────────────────────────────────────────────────────────
+updateHeader();
+
+if (!state.apiKey) {
+  setTimeout(() => showToast('SET YOUR API KEY IN CONFIG'), 1000);
+}
+</script>
+</body>
+</html>
