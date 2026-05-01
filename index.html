@@ -336,6 +336,30 @@
     gap: 4px;
   }
 
+  .history-delete-btn {
+    margin-left: auto;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--muted);
+    font-size: 14px;
+    padding: 2px 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .history-delete-btn:active {
+    background: var(--danger);
+    border-color: var(--danger);
+    color: #fff;
+  }
+
+  .history-item-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+
   .tag {
     font-size: 10px;
     padding: 2px 8px;
@@ -776,12 +800,43 @@ function renderHistory() {
   }
   container.innerHTML = [...state.history].reverse().map(h => `
     <div class="history-item">
-      <div class="history-date">${new Date(h.ts).toLocaleString()}</div>
+      <div class="history-item-header">
+        <div class="history-date">${new Date(h.ts).toLocaleString()}</div>
+        <button class="history-delete-btn" onclick="deleteActivity(${h.ts})" title="Delete">✕</button>
+      </div>
       <div class="history-desc">${escHtml(h.activity)}</div>
       <div class="history-tags">
         ${h.grants.map(g => `<span class="tag">+${g.xp} ${g.skill}</span>`).join('')}
       </div>
     </div>`).join('');
+}
+
+function deleteActivity(ts) {
+  const entry = state.history.find(h => h.ts === ts);
+  if (!entry) return;
+  if (!confirm('Delete this activity and remove its XP?')) return;
+
+  // Subtract XP from skills and total
+  entry.grants.forEach(g => {
+    const skill = g.skill.toLowerCase().trim();
+    if (state.skills[skill] !== undefined) {
+      state.skills[skill] = Math.max(0, state.skills[skill] - g.xp);
+      if (state.skills[skill] === 0) delete state.skills[skill];
+    }
+    state.totalXP = Math.max(0, state.totalXP - g.xp);
+  });
+
+  // Recompute level
+  const lvlInfo = computeLevel(state.totalXP);
+  state.level = lvlInfo.level;
+
+  // Remove from history
+  state.history = state.history.filter(h => h.ts !== ts);
+
+  save();
+  updateHeader();
+  renderHistory();
+  showToast('ACTIVITY DELETED');
 }
 
 function escHtml(s) {
