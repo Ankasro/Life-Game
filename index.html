@@ -631,6 +631,18 @@
   </div>
 
   <div class="card">
+    <div class="card-title">CHARACTER BIO</div>
+    <div class="setting-row">
+      <span class="setting-label">ABOUT YOU</span>
+      <textarea class="setting-input" id="bio-input" rows="6" style="resize:vertical; height:140px; line-height:1.6;" placeholder="Describe yourself as a baseline for XP scoring...&#10;&#10;e.g. &quot;I am a software developer who runs casually (5km in ~30 min). I have been learning Spanish for 6 months and cook simple meals daily. I have no formal fitness training.&quot;"></textarea>
+    </div>
+    <div style="font-size:11px; color:var(--muted); margin-bottom:12px; line-height:1.7;">
+      This context helps the AI calibrate XP — a personal best gets more XP than a routine effort.
+    </div>
+    <button class="save-btn" onclick="saveSettings()">SAVE CONFIG</button>
+  </div>
+
+  <div class="card">
     <div class="card-title">DANGER ZONE</div>
     <button class="danger-btn" onclick="resetData()">⚠ RESET ALL DATA</button>
   </div>
@@ -662,6 +674,7 @@ function defaultState() {
   return {
     apiKey: '',
     name: 'Hero',
+    bio: '',
     totalXP: 0,
     level: 1,
     skills: {},
@@ -779,11 +792,13 @@ function escHtml(s) {
 function loadSettings() {
   document.getElementById('api-key-input').value = state.apiKey || '';
   document.getElementById('name-input').value = state.name || 'Hero';
+  document.getElementById('bio-input').value = state.bio || '';
 }
 
 function saveSettings() {
   state.apiKey = document.getElementById('api-key-input').value.trim();
   state.name = document.getElementById('name-input').value.trim() || 'Hero';
+  state.bio = document.getElementById('bio-input').value.trim();
   save();
   showToast('CONFIG SAVED');
 }
@@ -837,11 +852,24 @@ async function submitActivity() {
 
 // ── CLAUDE API ─────────────────────────────────────────────────────────────
 async function callClaude(activity, apiKey) {
+  const existingSkills = Object.keys(state.skills);
+  const skillsContext = existingSkills.length > 0
+    ? `The user already has these skills: [${existingSkills.join(', ')}]. Strongly prefer assigning XP to these existing skills when they are even loosely relevant. Only invent a brand new skill name if the activity involves something genuinely not covered by any existing skill.`
+    : `The user has no skills yet, so create appropriate skill names for this activity.`;
+
+  const bioContext = state.bio
+    ? `Character background (use this to calibrate difficulty and XP amounts): ${state.bio}`
+    : `No character background provided.`;
+
   const prompt = `You are an XP system for a life gamification app. The user will describe something they did, and you must assign XP to relevant skills.
 
+${bioContext}
+
 Rules:
-- Create 1-4 skills that are relevant to the activity. Use concise, lowercase skill names (e.g. "running", "coding", "cooking", "spanish", "meditation").
-- Assign XP based on difficulty, effort, and achievement. Typical ranges: 10-30 for easy/short tasks, 30-80 for moderate effort, 80-150 for hard or exceptional achievements.
+- Assign XP to 1-4 skills relevant to the activity.
+- ${skillsContext}
+- Use concise, lowercase skill names (e.g. "running", "coding", "cooking", "spanish", "meditation").
+- Assign XP based on difficulty, effort, and achievement relative to the character background above. Typical ranges: 10-30 for easy/routine tasks, 30-80 for moderate effort, 80-150 for hard or exceptional achievements. A routine task for an expert earns less than the same task for a beginner.
 - Write a brief (1-2 sentence) encouraging assessment of the activity.
 - Return ONLY valid JSON, no markdown, no extra text.
 
