@@ -336,6 +336,24 @@
     gap: 4px;
   }
 
+  .skill-edit-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--muted);
+    font-size: 11px;
+    padding: 2px 7px;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 1px;
+    font-family: var(--font-body);
+  }
+  .skill-edit-btn:active {
+    background: var(--accent2);
+    border-color: var(--accent2);
+    color: #fff;
+  }
+
   .history-delete-btn {
     margin-left: auto;
     background: none;
@@ -776,11 +794,15 @@ function renderSkills() {
   container.innerHTML = skills.map(([name, xp]) => {
     const lvl = skillLevel(xp);
     const pct = Math.round((xp / Math.max(maxXP, 1)) * 100);
+    const safeName = name.replace(/'/g, "\'");
     return `
       <div class="skill-item">
         <div class="skill-header">
           <span class="skill-name">${name}</span>
-          <span class="skill-level-tag">LVL ${lvl}</span>
+          <div style="display:flex;align-items:center;gap:6px">
+            <button class="skill-edit-btn" onclick="renameSkill('${safeName}')">✎ RENAME</button>
+            <span class="skill-level-tag">LVL ${lvl}</span>
+          </div>
         </div>
         <div class="skill-header" style="margin-bottom:4px">
           <span></span>
@@ -789,6 +811,29 @@ function renderSkills() {
         <div class="bar-bg"><div class="bar-fill" style="width:${pct}%"></div></div>
       </div>`;
   }).join('');
+}
+
+function renameSkill(oldName) {
+  const newName = prompt(`Rename "${oldName}" to:`, oldName);
+  if (!newName) return;
+  const trimmed = newName.trim().toLowerCase();
+  if (!trimmed || trimmed === oldName) return;
+
+  // Merge XP if target skill already exists
+  const existingXP = state.skills[oldName] || 0;
+  state.skills[trimmed] = (state.skills[trimmed] || 0) + existingXP;
+  delete state.skills[oldName];
+
+  // Update all history grants
+  state.history.forEach(h => {
+    h.grants.forEach(g => {
+      if (g.skill.toLowerCase().trim() === oldName) g.skill = trimmed;
+    });
+  });
+
+  save();
+  renderSkills();
+  showToast(`"${oldName}" → "${trimmed}"`);
 }
 
 // ── RENDER HISTORY ─────────────────────────────────────────────────────────
