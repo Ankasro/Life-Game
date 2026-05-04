@@ -756,8 +756,8 @@ function computeLevel(totalXP) {
 
 // Skill level: lvl N→N+1 costs N*100 XP (100, 200, 300, ...)
 function skillLevel(xp) {
-  // Solve: xp >= 100*(1+2+...+n) = 100*n*(n+1)/2  =>  n^2+n - xp/50 >= 0
-  return Math.floor(0.5 * (Math.sqrt(1 + 2 * xp / 50) - 1)) + 1;
+  // Largest n where 50*n*(n-1) <= xp  =>  n = floor((50 + sqrt(2500 + 200*xp)) / 100)
+  return Math.floor((50 + Math.sqrt(2500 + 200 * xp)) / 100);
 }
 
 // XP needed to reach next skill level from current level
