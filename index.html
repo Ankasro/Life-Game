@@ -969,7 +969,7 @@ async function submitActivity() {
 async function callClaude(activity, apiKey) {
   const existingSkills = Object.keys(state.skills);
   const skillsContext = existingSkills.length > 0
-    ? `The user already has these skills: [${existingSkills.join(', ')}]. Strongly prefer assigning XP to these existing skills when they are even loosely relevant. Only invent a brand new skill name if the activity involves something genuinely not covered by any existing skill.`
+    ? `The user already has these skills: [${existingSkills.join(', ')}]. Prefer assigning XP to existing skills when relevant. However, if the recent activity history shows a recurring theme that does not map well to any existing skill, create a new skill for it — repeated focus on something is a signal it deserves its own skill. Only reuse an existing skill if it is a genuinely good fit.`
     : `The user has no skills yet, so create appropriate skill names for this activity.`;
 
   const bioContext = state.bio
