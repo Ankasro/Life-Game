@@ -770,6 +770,19 @@ function skillXpAtLevel(lvl) {
   return 50 * (lvl - 1) * lvl; // 100*(1+2+...+(lvl-1))
 }
 
+// ── LEVEL COLOR ────────────────────────────────────────────────────────────
+function levelColor(lvl) {
+  // Returns {badge: bgColor, bar: cssGradient, glow: rgba}
+  if (lvl >= 20) return { badge: '#ff2d55', bar: 'linear-gradient(90deg,#b91c1c,#ff2d55,#ff9500)', glow: 'rgba(255,45,85,0.6)' };
+  if (lvl >= 15) return { badge: '#bf5af2', bar: 'linear-gradient(90deg,#7c3aed,#bf5af2,#ff2d55)', glow: 'rgba(191,90,242,0.55)' };
+  if (lvl >= 10) return { badge: '#0a84ff', bar: 'linear-gradient(90deg,#1d4ed8,#0a84ff,#bf5af2)', glow: 'rgba(10,132,255,0.5)' };
+  if (lvl >= 7)  return { badge: '#00d4aa', bar: 'linear-gradient(90deg,#0d9488,#00d4aa,#0a84ff)', glow: 'rgba(0,212,170,0.5)' };
+  if (lvl >= 5)  return { badge: '#00ff88', bar: 'linear-gradient(90deg,#059669,#00ff88,#00d4aa)', glow: 'rgba(0,255,136,0.45)' };
+  if (lvl >= 3)  return { badge: '#fbbf24', bar: 'linear-gradient(90deg,#d97706,#fbbf24,#00ff88)', glow: 'rgba(251,191,36,0.45)' };
+  if (lvl >= 2)  return { badge: '#94a3b8', bar: 'linear-gradient(90deg,#475569,#94a3b8)', glow: 'rgba(148,163,184,0.35)' };
+                 return { badge: '#64748b', bar: 'linear-gradient(90deg,#334155,#64748b)', glow: 'rgba(100,116,139,0.3)' };
+}
+
 // ── VIEWS ──────────────────────────────────────────────────────────────────
 function switchView(name) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
@@ -810,20 +823,21 @@ function renderSkills() {
     const lvlNeeded = skillXpForNextLevel(lvl);
     const pct = Math.round(((xp - lvlStart) / lvlNeeded) * 100);
     const safeName = name.replace(/'/g, "\'");
+    const col = levelColor(lvl);
     return `
       <div class="skill-item">
         <div class="skill-header">
           <span class="skill-name">${name}</span>
           <div style="display:flex;align-items:center;gap:6px">
             <button class="skill-edit-btn" onclick="renameSkill('${safeName}')">✎ RENAME</button>
-            <span class="skill-level-tag">LVL ${lvl}</span>
+            <span class="skill-level-tag" style="background:${col.badge};color:#000;font-weight:700;">LVL ${lvl}</span>
           </div>
         </div>
         <div class="skill-header" style="margin-bottom:4px">
           <span></span>
-          <span class="skill-xp-label">${(xp - lvlStart).toLocaleString()} / ${lvlNeeded.toLocaleString()} XP</span>
+          <span class="skill-xp-label" style="color:${col.badge}">${(xp - lvlStart).toLocaleString()} / ${lvlNeeded.toLocaleString()} XP</span>
         </div>
-        <div class="bar-bg"><div class="bar-fill" style="width:${pct}%"></div></div>
+        <div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${col.bar};box-shadow:0 0 8px ${col.glow}"></div></div>
       </div>`;
   }).join('');
 }
