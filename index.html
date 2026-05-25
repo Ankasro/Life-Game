@@ -686,6 +686,14 @@
 
   <div class="card">
     <div class="card-title">DANGER ZONE</div>
+    <button class="danger-btn" onclick="recalculateAll()" style="margin-bottom:10px;width:100%">⟳ RECALCULATE EVERYTHING</button>
+    <div id="recalc-progress" style="display:none;margin-bottom:10px;">
+      <div style="font-size:11px;color:var(--muted);letter-spacing:2px;margin-bottom:6px;">RECALCULATING...</div>
+      <div style="background:var(--surface2);border-radius:4px;overflow:hidden;height:6px;margin-bottom:6px)">
+        <div id="recalc-bar" style="height:6px;background:var(--accent2);border-radius:4px;width:0%;transition:width 0.3s ease;"></div>
+      </div>
+      <div id="recalc-label" style="font-size:11px;color:var(--muted);text-align:center;"></div>
+    </div>
     <button class="danger-btn" onclick="resetData()">⚠ RESET ALL DATA</button>
   </div>
 
@@ -942,6 +950,141 @@ function resetData() {
   save();
   updateHeader();
   showToast('DATA RESET');
+}
+
+// ── RECALCULATE ALL ────────────────────────────────────────────────────────
+async function recalculateAll() {
+  if (!state.history.length) { showToast('NO HISTORY TO RECALCULATE'); return; }
+  if (!state.apiKey) { showToast('SET API KEY IN CONFIG FIRST'); return; }
+  if (!confirm(`Recalculate all ${state.history.length} activities from scratch? XP and skills will be reset and rebuilt. This cannot be undone.`)) return;
+
+  // Snapshot history, wipe XP/skills
+  const activities = [...state.history];
+  state.skills = {};
+  state.totalXP = 0;
+  state.level = 1;
+  state.history = [];
+  save();
+  updateHeader();
+
+  const progressWrap = document.getElementById('recalc-progress');
+  const progressBar = document.getElementById('recalc-bar');
+  const progressLabel = document.getElementById('recalc-label');
+  progressWrap.style.display = 'block';
+
+  const now = new Date();
+
+  for (let i = 0; i < activities.length; i++) {
+    const h = activities[i];
+    const actDate = new Date(h.ts);
+    const pct = Math.round(((i + 1) / activities.length) * 100);
+    progressBar.style.width = pct + '%';
+    progressLabel.textContent = `${i + 1} / ${activities.length}`;
+
+    try {
+      const result = await callClaudeWithDate(h.activity, state.apiKey, actDate, now);
+      // Apply XP using the original timestamp
+      result.grants.forEach(g => {
+        const skill = g.skill.toLowerCase().trim();
+        state.skills[skill] = (state.skills[skill] || 0) + g.xp;
+        state.totalXP += g.xp;
+      });
+      const lvlInfo = computeLevel(state.totalXP);
+      state.level = lvlInfo.level;
+      state.history.push({ ts: h.ts, activity: h.activity, grants: result.grants, summary: result.summary });
+      save();
+      updateHeader();
+    } catch (e) {
+      // On error, restore original entry unchanged
+      state.history.push(h);
+      console.warn('Recalc failed for entry', h, e);
+    }
+
+    // Small delay to avoid rate limiting
+    if (i < activities.length - 1) await new Promise(r => setTimeout(r, 400));
+  }
+
+  progressWrap.style.display = 'none';
+  showToast('RECALCULATION COMPLETE');
+  renderSkills();
+}
+
+async function callClaudeWithDate(activity, apiKey, actDate, now) {
+  const existingSkills = Object.keys(state.skills);
+  const skillsContext = existingSkills.length > 0
+    ? `The user already has these skills: [${existingSkills.join(', ')}]. Prefer assigning XP to existing skills when relevant. However, if the recent activity history shows a recurring theme that does not map well to any existing skill, create a new skill for it — repeated focus on something is a signal it deserves its own skill. Only reuse an existing skill if it is a genuinely good fit.`
+    : `The user has no skills yet, so create appropriate skill names for this activity.`;
+
+  const bioContext = state.bio
+    ? `Character background (use this to calibrate difficulty and XP amounts): ${state.bio}`
+    : `No character background provided.`;
+
+  const recentActivities = state.history.slice(-25);
+  const recentContext = recentActivities.length > 0
+    ? `Recent activity history (most recent last) — use this to calibrate XP relative to what the user has been doing, spot patterns, and decide whether a new skill is warranted or an existing one fits:\n` +
+      recentActivities.map((h, i) => {
+        const grants = h.grants.map(g => `${g.skill} +${g.xp}`).join(', ');
+        return `${i + 1}. "${h.activity}" → [${grants}]`;
+      }).join('\n')
+    : `No previous activities logged yet.`;
+
+  const dateContext = `This activity was originally logged on ${actDate.toDateString()}. Today is ${now.toDateString()}. Keep this temporal context in mind when evaluating the activity — e.g. how long ago it was, and how it fits into the user's overall history.`;
+
+  const prompt = `You are an XP system for a life gamification app. The user will describe something they did, and you must assign XP to relevant skills.
+
+${bioContext}
+
+${dateContext}
+
+${recentContext}
+
+Rules:
+- Assign XP to 1-3 skills relevant to the activity. Use fewer skills for simple tasks, more for complex ones that genuinely span multiple areas.
+- ${skillsContext}
+- Use concise, lowercase skill names (e.g. "running", "coding", "cooking", "spanish", "meditation"). Avoid overly broad catch-all skills like "self improvement", "personal growth", "productivity", "health", or "wellness" — these apply to almost everything and dilute the system. Prefer specific, concrete skills that describe exactly what the user is doing. If such a broad skill already exists, only award it XP when the activity is specifically and directly about that theme and nothing more specific fits.
+- Assign XP based on difficulty, effort, and achievement relative to the character background and recent history above. If the user does a similar activity repeatedly, calibrate XP to reflect that it is becoming routine. Use these as reference points for TOTAL XP awarded across all skills combined:
+  * 10 XP — trivial healthy habits (eating a piece of fruit, 5-min walk, drinking water)
+  * 100 XP — solid effort (1 hour of exercise, finishing a book chapter, cooking a proper meal)
+  * 1000 XP — major life milestones (finishing a university degree, running a marathon, shipping a product)
+  Scale everything else proportionally. A routine task for an expert earns less than the same task for a beginner.
+- Write a brief (1-2 sentence) encouraging assessment of the activity.
+- Return ONLY valid JSON, no markdown, no extra text.
+
+JSON format:
+{
+  "summary": "Brief assessment of the activity",
+  "grants": [
+    {"skill": "skill name", "xp": 50},
+    {"skill": "skill name", "xp": 30}
+  ]
+}
+
+Activity: ${activity}`;
+
+  const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 512,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err.error?.message || `HTTP ${resp.status}`);
+  }
+
+  const data = await resp.json();
+  const text = data.content.map(b => b.text || '').join('');
+  const clean = text.replace(/```json|```/g, '').trim();
+  return JSON.parse(clean);
 }
 
 // ── SUBMIT ACTIVITY ────────────────────────────────────────────────────────
