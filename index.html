@@ -786,6 +786,123 @@
     letter-spacing: 1px;
   }
 
+  /* ── STREAKS ── */
+  .streak-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    margin-bottom: 12px;
+    border-left: 3px solid var(--accent3);
+  }
+
+  .streak-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  .streak-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .streak-desc {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.6;
+    margin-bottom: 10px;
+  }
+
+  .streak-stats-row {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 12px;
+  }
+
+  .streak-stat {
+    text-align: center;
+  }
+
+  .streak-stat-val {
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 900;
+    color: var(--accent3);
+    display: block;
+    text-shadow: 0 0 12px rgba(245,158,11,0.4);
+  }
+
+  .streak-stat-lbl {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    margin-top: 2px;
+  }
+
+  .streak-days {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+  .streak-days::-webkit-scrollbar { display: none; }
+
+  .streak-day {
+    flex-shrink: 0;
+    width: 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .streak-day-label {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    text-align: center;
+    line-height: 1.3;
+  }
+
+  .streak-day-box {
+    width: 32px;
+    height: 32px;
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: var(--accent3);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .streak-day-box.checked {
+    background: var(--accent3);
+    border-color: var(--accent3);
+    color: #000;
+    box-shadow: 0 0 10px rgba(245,158,11,0.4);
+  }
+  .streak-day-box.future {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+  .streak-day-box.today {
+    border-color: var(--accent);
+  }
+
+  .streak-footer {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 10px;
+  }
+
   /* ── EMPTY STATE ── */
   .empty-state {
     text-align: center;
@@ -868,6 +985,7 @@
   <button class="nav-btn" onclick="switchView('skills')">📊 SKILLS</button>
   <button class="nav-btn" onclick="switchView('quests')">🎯 QUESTS</button>
   <button class="nav-btn" onclick="switchView('todos')">☑ TODO</button>
+  <button class="nav-btn" onclick="switchView('streaks')">🔥 STREAKS</button>
   <button class="nav-btn" onclick="switchView('history')">📜 HISTORY</button>
   <button class="nav-btn" onclick="switchView('settings')">⚙ CONFIG</button>
 </nav>
@@ -971,6 +1089,29 @@
   </div>
 </div>
 
+<!-- STREAKS VIEW -->
+<div id="streaks-view" class="view">
+  <div class="card">
+    <div class="card-title">NEW STREAK</div>
+    <div class="setting-row">
+      <span class="setting-label">TITLE</span>
+      <input class="setting-input" type="text" id="streak-new-title" placeholder="e.g. Morning Run">
+    </div>
+    <div class="setting-row">
+      <span class="setting-label">DESCRIPTION</span>
+      <textarea class="setting-input" id="streak-new-desc" rows="3" style="resize:vertical;height:80px;line-height:1.6;" placeholder="What counts as completing this streak?"></textarea>
+    </div>
+    <button class="save-btn" onclick="addStreak()" style="width:100%">+ ADD STREAK</button>
+  </div>
+
+  <div id="streaks-list">
+    <div class="empty-state">
+      <span class="icon">🔥</span>
+      No streaks yet.<br>Add one above to start tracking daily habits.
+    </div>
+  </div>
+</div>
+
 <!-- HISTORY VIEW -->
 <div id="history-view" class="view">
   <div id="history-list">
@@ -1062,7 +1203,8 @@ function defaultState() {
     skills: {},
     history: [],
     quests: [],
-    todos: []
+    todos: [],
+    streaks: []
   };
 }
 
@@ -1143,6 +1285,7 @@ function switchView(name) {
   if (name === 'skills') renderSkills();
   if (name === 'quests') renderQuests();
   if (name === 'todos') renderTodos();
+  if (name === 'streaks') renderStreaks();
   if (name === 'history') renderHistory();
   if (name === 'settings') loadSettings();
 }
@@ -1654,6 +1797,187 @@ function renderTodoItem(node, depth) {
   return html;
 }
 
+// ── STREAKS ────────────────────────────────────────────────────────────────
+function genStreakId() {
+  return 's_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+}
+
+// Returns YYYY-MM-DD in local time for a given Date object
+function dateKey(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function addStreak() {
+  const titleInput = document.getElementById('streak-new-title');
+  const descInput = document.getElementById('streak-new-desc');
+  const title = titleInput.value.trim();
+  const description = descInput.value.trim();
+  if (!title) { showToast('GIVE THE STREAK A TITLE'); return; }
+
+  if (!state.streaks) state.streaks = [];
+  state.streaks.push({
+    id: genStreakId(),
+    title,
+    description,
+    completions: {} // dateKey -> true
+  });
+  titleInput.value = '';
+  descInput.value = '';
+  save();
+  renderStreaks();
+  showToast('STREAK ADDED');
+}
+
+function deleteStreak(id) {
+  if (!confirm('Delete this streak and all its history?')) return;
+  state.streaks = (state.streaks || []).filter(s => s.id !== id);
+  save();
+  renderStreaks();
+}
+
+// Compute current consecutive-day streak count (counting back from today,
+// allowing today to be incomplete without breaking the streak)
+function computeCurrentStreak(streak) {
+  const completions = streak.completions || {};
+  const today = new Date();
+  let count = 0;
+  let cursor = new Date(today);
+
+  // If today isn't done yet, start counting from yesterday instead,
+  // so an incomplete "today" doesn't zero out an ongoing streak.
+  if (!completions[dateKey(cursor)]) {
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  while (completions[dateKey(cursor)]) {
+    count++;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  return count;
+}
+
+function computeTotalCompletions(streak) {
+  return Object.values(streak.completions || {}).filter(Boolean).length;
+}
+
+// Toggle a specific day for a streak. Future days are ignored.
+function toggleStreakDay(streakId, dateStr) {
+  const streak = (state.streaks || []).find(s => s.id === streakId);
+  if (!streak) return;
+
+  const today = new Date();
+  const todayKey = dateKey(today);
+  if (dateStr > todayKey) return; // can't toggle future days
+
+  if (!streak.completions) streak.completions = {};
+
+  if (streak.completions[dateStr]) {
+    // Unchecking: just remove, no activity log
+    delete streak.completions[dateStr];
+    save();
+    renderStreaks();
+  } else {
+    // Checking: mark done and send to LOG tab for an activity entry
+    streak.completions[dateStr] = true;
+    save();
+    renderStreaks();
+    completeStreakAsActivity(streak, dateStr);
+  }
+}
+
+function completeStreakAsActivity(streak, dateStr) {
+  const textarea = document.getElementById('activity-input');
+  if (textarea) {
+    const today = new Date();
+    const isToday = dateStr === dateKey(today);
+    const dateLabel = isToday ? 'today' : `on ${dateStr}`;
+    let base = streak.title;
+    if (streak.description) base += ` — ${streak.description}`;
+    base += ` (streak check-in ${dateLabel})`;
+    textarea.value = base + '\n\n';
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    }, 50);
+  }
+
+  showToast('STREAK CHECKED — ADD A COMMENT & SUBMIT');
+  switchView('log');
+}
+
+function renderStreaks() {
+  if (!state.streaks) state.streaks = [];
+  const container = document.getElementById('streaks-list');
+
+  if (state.streaks.length === 0) {
+    container.innerHTML = `<div class="empty-state"><span class="icon">🔥</span>No streaks yet.<br>Add one above to start tracking daily habits.</div>`;
+    return;
+  }
+
+  container.innerHTML = state.streaks.map(s => renderStreakCard(s)).join('');
+}
+
+function renderStreakCard(streak) {
+  const current = computeCurrentStreak(streak);
+  const total = computeTotalCompletions(streak);
+  const completions = streak.completions || {};
+
+  // Show last 14 days, oldest first, ending today
+  const days = [];
+  const today = new Date();
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    days.push(d);
+  }
+
+  const todayKey = dateKey(today);
+  const weekdayFmt = new Intl.DateTimeFormat(undefined, { weekday: 'short' });
+
+  const dayBoxes = days.map(d => {
+    const key = dateKey(d);
+    const checked = !!completions[key];
+    const isFuture = key > todayKey;
+    const isToday = key === todayKey;
+    const label = `${weekdayFmt.format(d)}<br>${d.getDate()}`;
+    const classes = ['streak-day-box'];
+    if (checked) classes.push('checked');
+    if (isFuture) classes.push('future');
+    if (isToday) classes.push('today');
+    return `
+      <div class="streak-day">
+        <div class="streak-day-label">${label}</div>
+        <div class="${classes.join(' ')}" ${isFuture ? '' : `onclick="toggleStreakDay('${streak.id}','${key}')"`}>${checked ? '✓' : ''}</div>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="streak-card">
+      <div class="streak-header">
+        <div class="streak-title">${escHtml(streak.title)}</div>
+      </div>
+      ${streak.description ? `<div class="streak-desc">${escHtml(streak.description)}</div>` : ''}
+      <div class="streak-stats-row">
+        <div class="streak-stat">
+          <span class="streak-stat-val">🔥${current}</span>
+          <div class="streak-stat-lbl">CURRENT</div>
+        </div>
+        <div class="streak-stat">
+          <span class="streak-stat-val">${total}</span>
+          <div class="streak-stat-lbl">TOTAL</div>
+        </div>
+      </div>
+      <div class="streak-days">${dayBoxes}</div>
+      <div class="streak-footer">
+        <button class="todo-meta-btn danger" onclick="deleteStreak('${streak.id}')">DELETE</button>
+      </div>
+    </div>`;
+}
+
 // ── SETTINGS ───────────────────────────────────────────────────────────────
 function loadSettings() {
   document.getElementById('api-key-input').value = state.apiKey || '';
@@ -1731,12 +2055,14 @@ function importData(event) {
       state.apiKey = key; // keep current device's API key
       if (!Array.isArray(state.quests)) state.quests = [];
       if (!Array.isArray(state.todos)) state.todos = [];
+      if (!Array.isArray(state.streaks)) state.streaks = [];
 
       save();
       updateHeader();
       renderSkills();
       renderQuests();
       renderTodos();
+      renderStreaks();
       renderHistory();
       loadSettings();
       showToast('DATA IMPORTED');
