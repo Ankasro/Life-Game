@@ -1364,8 +1364,12 @@ function renameSkill(oldName) {
 function renderQuests() {
   if (!state.quests) state.quests = [];
 
-  const active = state.quests.filter(q => q.status === 'active');
-  const completed = state.quests.filter(q => q.status === 'completed');
+  const active = state.quests
+    .filter(q => q.status === 'active')
+    .sort((a, b) => (b.lastProgressAt || b.createdAt || 0) - (a.lastProgressAt || a.createdAt || 0));
+  const completed = state.quests
+    .filter(q => q.status === 'completed')
+    .sort((a, b) => (b.completedAt || b.lastProgressAt || 0) - (a.completedAt || a.lastProgressAt || 0));
   const dismissed = state.quests.filter(q => q.status === 'dismissed');
 
   const activeContainer = document.getElementById('active-quests-list');
@@ -1466,9 +1470,11 @@ function applyQuestUpdates(updates) {
     } else if (typeof p.newValue === 'number') {
       q.currentValue = p.newValue;
     }
+    q.lastProgressAt = Date.now();
     if (q.currentValue >= (q.targetValue || 1)) {
       q.currentValue = q.targetValue || 1;
       q.status = 'completed';
+      q.completedAt = Date.now();
       completedQuests.push(q);
     }
   });
@@ -1919,6 +1925,12 @@ function renderStreaks() {
   }
 
   container.innerHTML = state.streaks.map(s => renderStreakCard(s)).join('');
+
+  // Scroll each day-row so today is at the start of the visible area
+  state.streaks.forEach(s => {
+    const el = document.getElementById('streak-days-' + s.id);
+    if (el) el.scrollLeft = el.scrollWidth;
+  });
 }
 
 function renderStreakCard(streak) {
@@ -1971,7 +1983,7 @@ function renderStreakCard(streak) {
           <div class="streak-stat-lbl">TOTAL</div>
         </div>
       </div>
-      <div class="streak-days">${dayBoxes}</div>
+      <div class="streak-days" id="streak-days-${streak.id}">${dayBoxes}</div>
       <div class="streak-footer">
         <button class="todo-meta-btn danger" onclick="deleteStreak('${streak.id}')">DELETE</button>
       </div>
