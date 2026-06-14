@@ -649,6 +649,143 @@
     box-shadow: 0 0 12px rgba(0,255,136,0.5);
   }
 
+  /* ── TODO ── */
+  #todo-input-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  #todo-input-row input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 13px;
+    padding: 10px 12px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  #todo-input-row input:focus {
+    border-color: var(--accent);
+  }
+
+  .todo-add-btn {
+    background: var(--accent);
+    color: #000;
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 900;
+    border: none;
+    border-radius: 6px;
+    width: 44px;
+    cursor: pointer;
+    transition: transform 0.15s;
+  }
+  .todo-add-btn:active { transform: scale(0.95); }
+
+  .todo-item {
+    margin-bottom: 4px;
+  }
+
+  .todo-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 4px;
+    border-radius: 6px;
+    transition: background 0.2s;
+  }
+  .todo-row:active { background: var(--surface2); }
+
+  .todo-checkbox {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    margin-top: 1px;
+    border: 2px solid var(--border);
+    border-radius: 5px;
+    background: var(--surface2);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    color: var(--accent);
+    transition: all 0.2s;
+  }
+  .todo-checkbox.checked {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #000;
+  }
+
+  .todo-body { flex: 1; min-width: 0; }
+
+  .todo-text {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.5;
+    word-break: break-word;
+  }
+  .todo-text.done {
+    color: var(--muted);
+    text-decoration: line-through;
+  }
+
+  .todo-meta {
+    display: flex;
+    gap: 6px;
+    margin-top: 4px;
+    align-items: center;
+  }
+
+  .todo-meta-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--muted);
+    font-size: 10px;
+    letter-spacing: 1px;
+    padding: 3px 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .todo-meta-btn:active { background: var(--surface2); color: var(--text); }
+  .todo-meta-btn.danger:active { background: var(--danger); border-color: var(--danger); color: #fff; }
+
+  .todo-children {
+    margin-left: 26px;
+    padding-left: 8px;
+    border-left: 1px solid var(--border);
+  }
+
+  .todo-new-sub {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+    margin-bottom: 6px;
+  }
+  .todo-new-sub input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 12px;
+    padding: 7px 10px;
+    outline: none;
+  }
+  .todo-new-sub input:focus { border-color: var(--accent); }
+
+  .todo-progress {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+
   /* ── EMPTY STATE ── */
   .empty-state {
     text-align: center;
@@ -730,6 +867,7 @@
   <button class="nav-btn active" onclick="switchView('log')">⚡ LOG</button>
   <button class="nav-btn" onclick="switchView('skills')">📊 SKILLS</button>
   <button class="nav-btn" onclick="switchView('quests')">🎯 QUESTS</button>
+  <button class="nav-btn" onclick="switchView('todos')">☑ TODO</button>
   <button class="nav-btn" onclick="switchView('history')">📜 HISTORY</button>
   <button class="nav-btn" onclick="switchView('settings')">⚙ CONFIG</button>
 </nav>
@@ -809,6 +947,27 @@
   <div class="card" id="dismissed-quests-card" style="display:none;">
     <div class="card-title">DISMISSED</div>
     <div id="dismissed-quests-list"></div>
+  </div>
+</div>
+
+<!-- TODO VIEW -->
+<div id="todos-view" class="view">
+  <div class="card">
+    <div class="card-title">NEW TO-DO</div>
+    <div id="todo-input-row">
+      <input type="text" id="todo-new-input" placeholder="Add a to-do..." onkeydown="if(event.key==='Enter') addTodo()">
+      <button class="todo-add-btn" onclick="addTodo()">+</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">TASKS</div>
+    <div id="todos-list">
+      <div class="empty-state">
+        <span class="icon">☑</span>
+        No to-dos yet.<br>Add one above to get started.
+      </div>
+    </div>
   </div>
 </div>
 
@@ -902,7 +1061,8 @@ function defaultState() {
     level: 1,
     skills: {},
     history: [],
-    quests: []
+    quests: [],
+    todos: []
   };
 }
 
@@ -970,10 +1130,19 @@ function switchView(name) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById(name + '-view').classList.add('active');
-  event.target.classList.add('active');
+
+  // Highlight the corresponding nav button (works for both click events and programmatic calls)
+  if (typeof event !== 'undefined' && event && event.target && event.target.classList) {
+    event.target.classList.add('active');
+  } else {
+    document.querySelectorAll('.nav-btn').forEach(b => {
+      if (b.getAttribute('onclick') === `switchView('${name}')`) b.classList.add('active');
+    });
+  }
 
   if (name === 'skills') renderSkills();
   if (name === 'quests') renderQuests();
+  if (name === 'todos') renderTodos();
   if (name === 'history') renderHistory();
   if (name === 'settings') loadSettings();
 }
@@ -1326,6 +1495,165 @@ function escHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+// ── TODOS ──────────────────────────────────────────────────────────────────
+function genTodoId() {
+  return 't_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+}
+
+function addTodo() {
+  const input = document.getElementById('todo-new-input');
+  const text = input.value.trim();
+  if (!text) return;
+  if (!state.todos) state.todos = [];
+  state.todos.push({ id: genTodoId(), text, done: false, children: [] });
+  input.value = '';
+  save();
+  renderTodos();
+}
+
+// Find a todo by id anywhere in the tree. Returns {node, parentArray, index} or null.
+function findTodo(id, list) {
+  list = list || state.todos || [];
+  for (let i = 0; i < list.length; i++) {
+    if (list[i].id === id) return { node: list[i], parentArray: list, index: i };
+    const found = findTodo(id, list[i].children || []);
+    if (found) return found;
+  }
+  return null;
+}
+
+function addSubtodo(parentId) {
+  const input = document.getElementById('sub-input-' + parentId);
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text) return;
+  const found = findTodo(parentId);
+  if (!found) return;
+  if (!found.node.children) found.node.children = [];
+  found.node.children.push({ id: genTodoId(), text, done: false, children: [] });
+  save();
+  renderTodos();
+}
+
+function deleteTodo(id) {
+  const found = findTodo(id);
+  if (!found) return;
+  if (!confirm('Delete this to-do' + (found.node.children && found.node.children.length ? ' and all its sub-tasks' : '') + '?')) return;
+  found.parentArray.splice(found.index, 1);
+  save();
+  renderTodos();
+}
+
+function toggleTodo(id) {
+  const found = findTodo(id);
+  if (!found) return;
+  const node = found.node;
+
+  if (!node.done) {
+    // Marking as done: send to the activity log instead of just checking the box
+    completeTodoAsActivity(node);
+  } else {
+    // Unmark
+    node.done = false;
+    save();
+    renderTodos();
+  }
+}
+
+function toggleTodoCollapse(id) {
+  const found = findTodo(id);
+  if (!found) return;
+  found.node.collapsed = !found.node.collapsed;
+  save();
+  renderTodos();
+}
+
+function toggleSubInput(id) {
+  const found = findTodo(id);
+  if (!found) return;
+  found.node.showSubInput = !found.node.showSubInput;
+  save();
+  renderTodos();
+}
+
+// Collect a flat textual summary of a todo + its subtasks (for the activity description)
+function todoSummaryText(node) {
+  let lines = [node.text];
+  (node.children || []).forEach(child => {
+    const prefix = child.done ? '✓ ' : '';
+    lines.push(`- ${prefix}${child.text}`);
+    (child.children || []).forEach(grandchild => {
+      const gPrefix = grandchild.done ? '✓ ' : '';
+      lines.push(`  - ${gPrefix}${grandchild.text}`);
+    });
+  });
+  return lines.join('\n');
+}
+
+// When a todo is checked off, send it to the LOG tab pre-filled, ready for an optional comment
+function completeTodoAsActivity(node) {
+  node.done = true;
+  save();
+  renderTodos();
+
+  const textarea = document.getElementById('activity-input');
+  if (textarea) {
+    const base = todoSummaryText(node);
+    textarea.value = base ? base + '\n\n' : '';
+    // Focus so the user can immediately type a comment
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    }, 50);
+  }
+
+  showToast('TODO COMPLETED — ADD A COMMENT & SUBMIT');
+  switchView('log');
+}
+
+function renderTodos() {
+  if (!state.todos) state.todos = [];
+  const container = document.getElementById('todos-list');
+
+  if (state.todos.length === 0) {
+    container.innerHTML = `<div class="empty-state"><span class="icon">☑</span>No to-dos yet.<br>Add one above to get started.</div>`;
+    return;
+  }
+
+  container.innerHTML = state.todos.map(t => renderTodoItem(t, 0)).join('');
+}
+
+function renderTodoItem(node, depth) {
+  const children = node.children || [];
+  const doneCount = children.filter(c => c.done).length;
+  const hasChildren = children.length > 0;
+  const collapsed = !!node.collapsed;
+
+  let html = `
+    <div class="todo-item">
+      <div class="todo-row">
+        <div class="todo-checkbox ${node.done ? 'checked' : ''}" onclick="toggleTodo('${node.id}')">${node.done ? '✓' : ''}</div>
+        <div class="todo-body">
+          <div class="todo-text ${node.done ? 'done' : ''}">${escHtml(node.text)}</div>
+          <div class="todo-meta">
+            ${hasChildren ? `<span class="todo-progress">${doneCount}/${children.length}</span>` : ''}
+            ${hasChildren ? `<button class="todo-meta-btn" onclick="toggleTodoCollapse('${node.id}')">${collapsed ? '▸ SHOW' : '▾ HIDE'}</button>` : ''}
+            <button class="todo-meta-btn" onclick="toggleSubInput('${node.id}')">+ SUBTASK</button>
+            <button class="todo-meta-btn danger" onclick="deleteTodo('${node.id}')">DELETE</button>
+          </div>
+          ${node.showSubInput ? `
+          <div class="todo-new-sub">
+            <input type="text" id="sub-input-${node.id}" placeholder="Add sub-task..." onkeydown="if(event.key==='Enter') addSubtodo('${node.id}')">
+            <button class="todo-add-btn" style="width:36px;font-size:14px;" onclick="addSubtodo('${node.id}')">+</button>
+          </div>` : ''}
+        </div>
+      </div>
+      ${hasChildren && !collapsed ? `<div class="todo-children">${children.map(c => renderTodoItem(c, depth + 1)).join('')}</div>` : ''}
+    </div>`;
+
+  return html;
+}
+
 // ── SETTINGS ───────────────────────────────────────────────────────────────
 function loadSettings() {
   document.getElementById('api-key-input').value = state.apiKey || '';
@@ -1402,11 +1730,13 @@ function importData(event) {
       state = { ...defaultState(), ...incoming };
       state.apiKey = key; // keep current device's API key
       if (!Array.isArray(state.quests)) state.quests = [];
+      if (!Array.isArray(state.todos)) state.todos = [];
 
       save();
       updateHeader();
       renderSkills();
       renderQuests();
+      renderTodos();
       renderHistory();
       loadSettings();
       showToast('DATA IMPORTED');
