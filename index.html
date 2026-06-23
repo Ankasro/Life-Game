@@ -1412,7 +1412,7 @@ function renderQuestCard(q) {
   } else if (q.status === 'dismissed') {
     footer = `<span class="quest-reward" style="color:var(--muted)">DISMISSED</span>`;
   } else {
-    footer = `<span class="quest-reward">+${q.rewardXp || 0} XP BONUS</span><button class="quest-dismiss-btn" onclick="dismissQuest('${q.id}')">DISMISS</button>`;
+    footer = `<span class="quest-reward">+${q.rewardXp || 0} XP BONUS</span><div style="display:flex;gap:6px;"><button class="quest-dismiss-btn" onclick="setQuestProgress('${q.id}')">SET PROGRESS</button><button class="quest-dismiss-btn" onclick="dismissQuest('${q.id}')">DISMISS</button></div>`;
   }
 
   return `
@@ -1461,6 +1461,38 @@ function uncompleteQuest(id) {
   updateHeader();
   renderQuests();
   showToast('QUEST BACK IN PROGRESS');
+}
+
+function setQuestProgress(id) {
+  const q = state.quests.find(qu => qu.id === id);
+  if (!q || q.status !== 'active') return;
+
+  const unit = q.unit ? ` ${q.unit}` : '';
+  const raw = prompt(`Set progress for "${q.title}"\nTarget: ${q.targetValue || 1}${unit}\nCurrent: ${q.currentValue || 0}${unit}\n\nEnter new value:`, q.currentValue || 0);
+  if (raw === null) return; // cancelled
+
+  const value = parseFloat(raw);
+  if (isNaN(value) || value < 0) { showToast('INVALID VALUE'); return; }
+
+  q.currentValue = Math.min(value, q.targetValue || 1);
+  q.lastProgressAt = Date.now();
+
+  // Check for completion
+  if (q.currentValue >= (q.targetValue || 1)) {
+    q.status = 'completed';
+    q.completedAt = Date.now();
+    const bonus = q.rewardXp || 0;
+    state.totalXP += bonus;
+    const lvlInfo = computeLevel(state.totalXP);
+    state.level = lvlInfo.level;
+    updateHeader();
+    showToast(`QUEST COMPLETE! +${bonus} XP`);
+  } else {
+    showToast('PROGRESS UPDATED');
+  }
+
+  save();
+  renderQuests();
 }
 
 function genQuestId() {
