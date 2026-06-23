@@ -1408,7 +1408,7 @@ function renderQuestCard(q) {
 
   let footer;
   if (q.status === 'completed') {
-    footer = `<span class="quest-complete-badge">✓ COMPLETE</span><span class="quest-reward">+${q.rewardXp || 0} XP BONUS</span>`;
+    footer = `<span class="quest-complete-badge">✓ COMPLETE</span><div style="display:flex;gap:6px;align-items:center;"><span class="quest-reward">+${q.rewardXp || 0} XP BONUS</span><button class="quest-dismiss-btn" onclick="uncompleteQuest('${q.id}')">MARK INCOMPLETE</button></div>`;
   } else if (q.status === 'dismissed') {
     footer = `<span class="quest-reward" style="color:var(--muted)">DISMISSED</span>`;
   } else {
@@ -1439,6 +1439,28 @@ function dismissQuest(id) {
   save();
   renderQuests();
   showToast('QUEST DISMISSED');
+}
+
+function uncompleteQuest(id) {
+  const q = state.quests.find(qu => qu.id === id);
+  if (!q || q.status !== 'completed') return;
+  if (!confirm(`Mark "${q.title}" as incomplete? The +${q.rewardXp || 0} XP bonus will be removed.`)) return;
+
+  // Subtract the bonus XP
+  const bonus = q.rewardXp || 0;
+  state.totalXP = Math.max(0, state.totalXP - bonus);
+  const lvlInfo = computeLevel(state.totalXP);
+  state.level = lvlInfo.level;
+
+  // Push back to active with progress reset to one step before target
+  q.status = 'active';
+  q.currentValue = Math.max(0, (q.targetValue || 1) - 1);
+  q.completedAt = null;
+
+  save();
+  updateHeader();
+  renderQuests();
+  showToast('QUEST BACK IN PROGRESS');
 }
 
 function genQuestId() {
